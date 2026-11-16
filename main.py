@@ -244,13 +244,20 @@ class LivingMemoryPlugin(Star):
         except Exception as exc:
             logger.error("[ExternalAPI] 初始化失败: %s", exc, exc_info=True)
             return
-        server = ExternalApiServer(
-            service,
-            host=str(self.config_manager.get("external_api.listen_host", "127.0.0.1")),
-            port=int(self.config_manager.get("external_api.listen_port", 7801)),
-        )
+        host = str(self.config_manager.get("external_api.listen_host", "127.0.0.1"))
+        port = int(self.config_manager.get("external_api.listen_port", 7801))
+        server = ExternalApiServer(service, host=host, port=port)
         if server.start():
             self._external_api_server = server
+            return
+        # 端口偶尔仍被上一个进程占用（插件重载/热更新），重试一次并留下可观测日志，
+        # 避免外部 API 静默不启动。
+        logger.warning("[ExternalAPI] 监听 %s:%s 失败，3 秒后重试", host, port)
+        await asyncio.sleep(3)
+        if server.start():
+            self._external_api_server = server
+            return
+        logger.error("[ExternalAPI] 外部记忆 API 启动失败：%s:%s 不可用", host, port)
 
     async def _stop_external_api_server(self) -> None:
         """Stop the external API listener if it is running."""

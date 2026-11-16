@@ -813,6 +813,19 @@ class ExternalApiService:
                 }
         return {"memory_id": memory_id, "created": True, "_audit_memory_id": memory_id}
 
+    @staticmethod
+    def _metadata_dict(raw: Any) -> dict[str, Any]:
+        """把数据库里的 metadata（JSON 文本或 dict）统一成字典。"""
+        if isinstance(raw, Mapping):
+            return dict(raw)
+        if isinstance(raw, str) and raw.strip():
+            try:
+                parsed = json.loads(raw)
+            except (TypeError, ValueError):
+                return {}
+            return parsed if isinstance(parsed, dict) else {}
+        return {}
+
     async def _load_memory(
         self, key: ExternalApiKey, memory_id: int | None
     ) -> tuple[int, dict[str, Any]]:
@@ -829,7 +842,7 @@ class ExternalApiService:
         memory = await self.memory_engine.get_memory(parsed_id)
         if not memory:
             raise ExternalApiError(404, "not_found", "Memory not found")
-        metadata = memory.get("metadata") or {}
+        metadata = self._metadata_dict(memory.get("metadata"))
         if not self._memory_visible(key, metadata):
             raise ExternalApiError(
                 403, "forbidden", "Memory is outside this key's allowed scope"
@@ -840,7 +853,7 @@ class ExternalApiService:
         self, key: ExternalApiKey, memory_id: int | None
     ) -> dict[str, Any]:
         parsed_id, memory = await self._load_memory(key, memory_id)
-        metadata = memory.get("metadata") or {}
+        metadata = self._metadata_dict(memory.get("metadata"))
         return {
             "memory": {
                 "memory_id": parsed_id,
