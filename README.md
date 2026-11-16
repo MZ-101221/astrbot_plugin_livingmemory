@@ -21,9 +21,9 @@
 
 LivingMemory 为 AstrBot 保存长期偏好、人物关系、项目进展和历史约定。它从对话中整理记忆，在需要时结合关键词、语义和图谱召回，并通过归档、衰减和访问强化管理记忆生命周期。
 
-> **最新稳定版：2.10.0**<br>
-> 修正召回噪声与保留策略，降低总结与注入成本，并新增数据体检与质量回归门禁。<br>
-> [下载 2.10.0](https://github.com/lxfight-s-Astrbot-Plugins/astrbot_plugin_livingmemory/releases/tag/2.10.0) · [版本与升级](https://lxfight-s-astrbot-plugins.github.io/astrbot_plugin_livingmemory/releases) · [历史版本](https://github.com/lxfight-s-Astrbot-Plugins/astrbot_plugin_livingmemory/releases)
+> **最新稳定版：2.13.0**<br>
+> 管理界面默认外观升级为 macOS 26 液态玻璃，新增外观面板自定义，并把样式收敛为统一设计令牌；无命令、配置项与数据库结构变化，升级无需迁移。<br>
+> [下载 2.13.0](https://github.com/lxfight-s-Astrbot-Plugins/astrbot_plugin_livingmemory/releases/tag/2.13.0) · [版本与升级](https://lxfight-s-astrbot-plugins.github.io/astrbot_plugin_livingmemory/releases) · [历史版本](https://github.com/lxfight-s-Astrbot-Plugins/astrbot_plugin_livingmemory/releases)
 
 ## 从记住，到想起来
 
@@ -63,6 +63,37 @@ LivingMemory 的语义召回依赖 Embedding Provider，推荐硅基流动当前
 - 嵌入维度：`1024`
 
 保存并点击测试后，把该 Provider ID 填入 LivingMemory 的 `provider_settings.embedding_provider_id`。模型 ID 与 Provider ID 不同，完整说明见[嵌入模型与 BGE-M3](https://lxfight-s-astrbot-plugins.github.io/astrbot_plugin_livingmemory/guide/embedding-model)。
+
+## 本仓库的规划功能
+
+本仓库在 2.13.0 基础上继续开发。原设计中的记忆作用域、取代链、用户档案、群共享与外部接口已由上游实现；本仓库补上剩余四项，全部以配置开关提供，默认关闭，升级后行为与 2.13.0 一致。
+
+### 上游 2.13.0 已实现
+
+| 原规划项 | 上游实现 |
+| --- | --- |
+| 记忆作用域 | `filtering_settings.memory_scope_mode` 提供 `legacy` / `session` / `user` / `global` 四种模式，另有强制隔离、白名单与身份别名 |
+| 记忆取代链 | 旧记忆被取代后保留 `superseded_by` 指针，召回时跳过；`/lmem trace` 可回溯取代链 |
+| 用户档案 | `memory_profiles` 按人格与作用域保存偏好、状态与任务画像，可查看历史版本 |
+| 群共享池 | 频道公共记忆 `livingmemory:channel:<平台>:<群ID>`，与个人作用域合并召回，默认关闭 |
+| 外部接口 | `core/external_api_server.py` 提供本地 HTTP API，`scripts/memory_mcp_server.py` 提供 MCP 接入 |
+
+### 本仓库新增（默认关闭）
+
+| 功能 | 开关 | 行为 |
+| --- | --- | --- |
+| 逐条隐私标签 | `privacy_settings.enabled` | 写入时把 `privacy` 规范为 `public` 或 `private:<归属作用域>`；召回侧按发言人过滤，群聊只比对用户级作用域，私聊兼容会话归属，无主私有标签按不可见处理 |
+| 记忆时效状态 | `freshness_settings.enabled` | 由 `valid_until` 与 `superseded_by` 实时推导 `timeless` / `current` / `pending` / `outdated`；注入时按状态附加中文提醒，过期与被取代两类可分别关闭 |
+| 注入触发模式 | `recall_engine.injection_mode` | `auto` 每轮注入（默认）；`on_demand` 不主动注入，改为在系统提示中提示模型调用检索工具；`hybrid` 仅当最高相似度达到 `recall_engine.hybrid_auto_threshold`（默认 0.55）时注入 |
+| 按发言人锁定注入 | `recall_engine.speaker_locked_injection` | 群聊只保留当前发言人的用户级记忆、本群公共记忆与全局记忆 |
+
+时效状态不落库，每次按 `valid_until` 与取代关系实时推导；隐私标签仅在开关打开时随写入落到 `documents.metadata.privacy`。记忆列表接口已返回 `privacy` 与 `time_status`，编辑接口支持修改这两个字段；仪表盘表格尚未加列展示。
+
+### 尚未实现
+
+- 取代关系自动改写：`outdated` 只做注入提示，不会自动把旧记忆的 `superseded_by` 指向新记忆，仍由上游的合并流程维护。
+
+字段设计与落点文件见 [ANALYSIS.md](ANALYSIS.md)。
 
 ## 继续了解
 

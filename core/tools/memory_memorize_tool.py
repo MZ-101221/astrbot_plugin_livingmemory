@@ -12,6 +12,8 @@ from astrbot.core.agent.run_context import ContextWrapper
 from astrbot.core.agent.tool import FunctionTool, ToolExecResult
 from astrbot.core.astr_agent_context import AstrAgentContext
 
+from ..memory_freshness import apply_valid_until_field
+from ..memory_privacy import apply_privacy_field, config_value
 from ..memory_scope import adapter_access, is_event_memory_allowed, resolve_memory_scope
 from ..utils import get_persona_id
 from .agentic_recall_common import json_result as _json_result
@@ -77,6 +79,16 @@ class MemoryMemorizeTool(FunctionTool[AstrAgentContext]):
                     "description": "Optional short reason why this information should be remembered.",
                     "default": "",
                 },
+                "privacy": {
+                    "type": "string",
+                    "description": "Optional privacy label: public, or private when the memory is sensitive and should only be recalled for the current speaker.",
+                    "default": "public",
+                },
+                "valid_until": {
+                    "type": "string",
+                    "description": "Optional expiry date for time-limited facts, formatted as YYYY-MM-DD. Omit for timeless facts.",
+                    "default": "",
+                },
             },
             "required": ["memory"],
         }
@@ -91,6 +103,8 @@ class MemoryMemorizeTool(FunctionTool[AstrAgentContext]):
         sentiment: str = "neutral",
         importance: float = 0.7,
         reason: str = "",
+        privacy: str = "public",
+        valid_until: str = "",
     ) -> ToolExecResult:
         """执行长期记忆写入。"""
         cleaned_memory = (memory or "").strip()
@@ -152,6 +166,30 @@ class MemoryMemorizeTool(FunctionTool[AstrAgentContext]):
                 cleaned_reason = (reason or "").strip()
                 if cleaned_reason:
                     metadata["memorize_reason"] = cleaned_reason
+
+                # 隐私标签与时效：仅在对应开关开启时规范化，关闭时 metadata
+                # 结构与升级前保持一致（不写入任何新键）。
+                if bool(
+                    config_value(self.config_manager, "privacy_settings.enabled", False)
+                ) and str(privacy or "").strip():
+                    metadata["privacy"] = privacy
+                    apply_privacy_field(
+                        metadata,
+                        owner_scope=memory_scope,
+                        default_label=str(
+                            config_value(
+                                self.config_manager,
+                                "privacy_settings.default_label",
+                                "public",
+                            )
+                            or "public"
+                        ),
+                    )
+                if bool(
+                    config_value(self.config_manager, "freshness_settings.enabled", False)
+                ) and str(valid_until or "").strip():
+                    metadata["valid_until"] = valid_until
+                    apply_valid_until_field(metadata)
 
                 memory_id = await self.memory_engine.add_memory(
                     content=content,

@@ -10,6 +10,9 @@ from quart import request
 
 from astrbot.api import logger
 
+from ..memory_freshness import VALID_UNTIL_METADATA_KEY, parse_valid_until
+from ..memory_privacy import PRIVACY_METADATA_KEY, metadata_privacy, normalize_privacy_label
+
 
 class MemoryHandlerUpdateMixin:
     """MemoryHandler 拆分模块：MemoryHandlerUpdateMixin"""
@@ -241,6 +244,18 @@ class MemoryHandlerUpdateMixin:
             updates["metadata"] = {"memory_type": type_value}
             old_value_for_history = current_metadata.get("memory_type", "GENERAL")
             new_value_for_history = type_value
+        elif field == "privacy":
+            label = normalize_privacy_label(
+                value, owner_scope=current_metadata.get("memory_scope")
+            )
+            updates["metadata"] = {PRIVACY_METADATA_KEY: label}
+            old_value_for_history = metadata_privacy(current_metadata)
+            new_value_for_history = label
+        elif field == "valid_until":
+            parsed = parse_valid_until(value)
+            updates["metadata"] = {VALID_UNTIL_METADATA_KEY: parsed}
+            old_value_for_history = current_metadata.get(VALID_UNTIL_METADATA_KEY)
+            new_value_for_history = parsed
         else:
             return self.utils.error(f"不支持编辑字段: {field}")
 

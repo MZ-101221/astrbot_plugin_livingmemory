@@ -7,6 +7,8 @@ from typing import Any
 from astrbot.api import logger
 
 from ..base.exceptions import LowQualityMemoryError, MemoryParseError
+from ..memory_freshness import apply_valid_until_field
+from ..memory_privacy import apply_privacy_field
 from ..memory_scope import channel_scope_parts, is_channel_scope
 from ..memory_source import serialize_source_messages
 
@@ -54,6 +56,8 @@ class MemoryReflectionStorageMixin:
             engine = self.memory_engine
             if engine is None:
                 return None, False, None
+
+            metadata = self._normalize_privacy_freshness(metadata, memory_scope)
 
             enabled = True
             threshold = 0.92
@@ -122,6 +126,36 @@ class MemoryReflectionStorageMixin:
                 embedding=embedding,
             )
             return memory_id, True, None
+
+    def _normalize_privacy_freshness(
+        self, metadata: dict[str, Any], memory_scope: str
+    ) -> dict[str, Any]:
+        """写入前规范化 privacy 与 valid_until 字段。
+
+        两个开关都关闭时原样返回入参，保证升级后默认行为不变。
+
+        Args:
+            metadata: 待写入的结构化 metadata。
+            memory_scope: 本次写入使用的存储作用域（私有标签的归属）。
+
+        Returns:
+            规范化后的 metadata 副本。
+        """
+        if not isinstance(metadata, dict):
+            return metadata
+        result = dict(metadata)
+        if bool(self.config_manager.get("privacy_settings.enabled", False)):
+            apply_privacy_field(
+                result,
+                owner_scope=memory_scope,
+                default_label=str(
+                    self.config_manager.get("privacy_settings.default_label", "public")
+                    or "public"
+                ),
+            )
+        if bool(self.config_manager.get("freshness_settings.enabled", False)):
+            apply_valid_until_field(result)
+        return result
 
     def _profile_manager(self):
         """Return the engine profile manager, ignoring mocks/test doubles."""

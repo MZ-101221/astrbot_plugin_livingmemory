@@ -442,6 +442,15 @@ def build_storage_format(
     if is_group_chat and "participants" in structured_data:
         metadata["participants"] = structured_data["participants"]
 
+    # 可选字段：模型给出 privacy / valid_until 时透传，交给写入侧规范化。
+    # 未给出则不写入任何键，保持与升级前一致的 metadata 结构。
+    privacy = structured_data.get("privacy")
+    if privacy not in (None, ""):
+        metadata["privacy"] = privacy
+    valid_until = structured_data.get("valid_until")
+    if valid_until not in (None, ""):
+        metadata["valid_until"] = valid_until
+
     return content, metadata
 
 

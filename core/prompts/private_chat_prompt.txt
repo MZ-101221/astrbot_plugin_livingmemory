@@ -20,6 +20,10 @@ importance 取 0.0-1.0(1-2 位小数:关键需求或决策≥0.9,明确计划或
 - basic=身份/基础信息, preferences=偏好, status=当前状态, task_preferences=任务偏好; append/remove 仅用于后两类。
 - evidence 省略或 [] 表示本条总结；value 尽量短，不要复述整段对话。
 
+可选 privacy 与 valid_until（能判断时才输出，否则省略这两个字段）:
+- privacy: "public" 或 "private"。private 用于只应让对话当事人本人回忆到的内容(敏感个人信息、只对你说的事、隐私话题)。
+- valid_until: 该事实的失效日期，格式 YYYY-MM-DD；没有明确时效时省略。
+
 # 示例
 [张三 | ID: 1 | 2025-11-19 14:30] 明天下午三点开会,记得带项目文档
 输出: {"summary": "张三提醒我明天(2025-11-20)15:00 开会要带项目文档", "topics": ["会议提醒"], "key_facts": ["张三通知明天(2025-11-20)15:00 开会", "需要带项目文档"], "sentiment": "neutral", "importance": 0.8}

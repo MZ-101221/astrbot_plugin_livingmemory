@@ -140,7 +140,9 @@ def _load_injection_header_footer() -> tuple[str, str]:
     )
 
 
-def format_memories_for_injection(memories: list, *, max_chars: int = 3000) -> str:
+def format_memories_for_injection(
+    memories: list, *, max_chars: int = 3000, notice: str = ""
+) -> str:
     """
     将检索到的记忆列表格式化为单个字符串，以便注入到 System Prompt。
     添加明确的说明文本，告知 LLM 这些是历史对话记忆。
@@ -148,6 +150,7 @@ def format_memories_for_injection(memories: list, *, max_chars: int = 3000) -> s
     Args:
         memories: 记忆字典列表。
         max_chars: 注入文本的字符预算上限（超出后按顺序截断）。
+        notice: 时效提醒等前置说明；按状态合并成一行，不逐条追加。
 
     Returns:
         可直接注入的格式化文本；无记忆时返回空字符串。
@@ -163,6 +166,9 @@ def format_memories_for_injection(memories: list, *, max_chars: int = 3000) -> s
     header_body, footer_body = _load_injection_header_footer()
 
     header = f"{MEMORY_INJECTION_HEADER}\n{header_body.strip()}\n\n"
+    notice_text = notice.strip()
+    if notice_text:
+        header = f"{header}{notice_text}\n\n"
     footer = f"\n\n{footer_body.strip()}\n{MEMORY_INJECTION_FOOTER}"
 
     logger.debug(

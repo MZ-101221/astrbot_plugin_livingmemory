@@ -7,6 +7,27 @@
 
 ## [Unreleased]
 
+## [2.14.0] - 2026-11-17
+
+2.14.0 基于上游 2.13.0，补上原设计里剩余的四项能力，全部以配置开关提供、默认关闭：关闭时行为与 2.13.0 一致，不写入任何新 metadata 键。无数据库结构变化，无需迁移。
+
+### 新增
+
+- **逐条隐私标签**：`privacy_settings.enabled`（默认 false）。写入时把 `privacy` 规范为 `public` 或 `private:<归属作用域>`，召回侧按发言人过滤；群聊只比对用户级作用域，私聊兼容会话归属，无主私有标签按不可见处理。
+- **记忆时效状态**：`freshness_settings.enabled`（默认 false）。由 `metadata.valid_until` 与 `superseded_by` 实时推导 `timeless` / `current` / `pending` / `outdated`，注入时按状态附加提醒；过期与被取代两类提醒可分别关闭。状态不落库。
+- **注入触发模式**：`recall_engine.injection_mode`（`auto` / `on_demand` / `hybrid`，默认 `auto`）。`on_demand` 跳过注入，改为在系统提示中提示模型调用检索工具；`hybrid` 仅在最高相似度达到 `recall_engine.hybrid_auto_threshold`（默认 0.55）时注入。
+- **按发言人锁定注入**：`recall_engine.speaker_locked_injection`（默认 false）。群聊只保留当前发言人的用户级记忆、本群公共记忆与全局记忆。
+
+### 变更
+
+- `metadata.yaml` 的 `repo` 指向本 fork。
+- 记忆列表接口返回派生字段 `privacy` 与 `time_status`；编辑接口支持修改 `privacy` 与 `valid_until`；`memory_memorize` 工具新增可选参数 `privacy`、`valid_until`。
+
+### 未做
+
+- 仪表盘表格未加列展示上述两个字段（接口已具备数据）。
+- 不新增索引与迁移：隐私过滤在读取侧按 metadata 判断。
+
 ## [2.13.0] - 2026-11-13
 
 2.13.0 是 Dashboard 外观版本：默认外观升级到 macOS 26 Liquid Glass，新增外观面板自定义，并完成一轮样式层收敛——统一设计令牌、清理被皮肤覆盖的重复声明、补齐空状态与卡片留白、按皮肤重做诊断页。无命令、配置项、注入格式与数据库结构变化，无需迁移；首屏资源仍在体积预算内。

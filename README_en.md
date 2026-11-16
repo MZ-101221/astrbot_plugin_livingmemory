@@ -21,9 +21,9 @@
 
 LivingMemory gives AstrBot a durable store of preferences, relationships, project progress and past agreements. It summarizes conversations, recalls relevant context through keywords, vectors and a graph, and manages memory through archiving, decay and access reinforcement.
 
-> **Latest stable: 2.10.0**<br>
-> Fixes recall noise and retention policy, cuts summary and injection cost, and adds data diagnostics and quality regression gates.<br>
-> [Download 2.10.0](https://github.com/lxfight-s-Astrbot-Plugins/astrbot_plugin_livingmemory/releases/tag/2.10.0) · [Releases and upgrades](https://lxfight-s-astrbot-plugins.github.io/astrbot_plugin_livingmemory/en/releases) · [Earlier releases](https://github.com/lxfight-s-Astrbot-Plugins/astrbot_plugin_livingmemory/releases)
+> **Latest stable: 2.13.0**<br>
+> The dashboard now defaults to macOS 26 Liquid Glass, adds an appearance panel for customization, and consolidates styling into shared design tokens. No command, configuration or database changes, so upgrades need no migration.<br>
+> [Download 2.13.0](https://github.com/lxfight-s-Astrbot-Plugins/astrbot_plugin_livingmemory/releases/tag/2.13.0) · [Releases and upgrades](https://lxfight-s-astrbot-plugins.github.io/astrbot_plugin_livingmemory/en/releases) · [Earlier releases](https://github.com/lxfight-s-Astrbot-Plugins/astrbot_plugin_livingmemory/releases)
 
 ## From remembering to recalling
 
@@ -63,6 +63,37 @@ LivingMemory's semantic recall depends on an Embedding Provider. The free `BAAI/
 - Embedding Dimensions: `1024`
 
 Save and test the provider, then set `provider_settings.embedding_provider_id` in LivingMemory to that Provider ID. The model ID and Provider ID are different; see [Embedding Models and BGE-M3](https://lxfight-s-astrbot-plugins.github.io/astrbot_plugin_livingmemory/en/guide/embedding-model) for the full guide.
+
+## Planned features in this fork
+
+This fork continues from 2.13.0. The memory scope system, supersede chain, user profiles, channel memory and external interfaces from the original design are now implemented upstream. This fork adds the remaining four items as opt-in switches that are off by default, so behavior after upgrading matches 2.13.0.
+
+### Already implemented upstream in 2.13.0
+
+| Original plan item | Upstream implementation |
+| --- | --- |
+| Memory scopes | `filtering_settings.memory_scope_mode` offers `legacy` / `session` / `user` / `global`, plus forced isolation, allow lists and identity aliases |
+| Supersede chain | Superseded memories keep a `superseded_by` pointer and are skipped during recall; `/lmem trace` walks the chain |
+| User profiles | `memory_profiles` stores preferences, status and task profiles per persona and scope, with version history |
+| Channel memory | Shared pool `livingmemory:channel:<platform>:<group_id>`, merged with personal scopes, disabled by default |
+| External interfaces | `core/external_api_server.py` for the local HTTP API, `scripts/memory_mcp_server.py` for MCP access |
+
+### Added in this fork (off by default)
+
+| Feature | Switch | Behavior |
+| --- | --- | --- |
+| Per-memory privacy labels | `privacy_settings.enabled` | Normalizes `privacy` to `public` or `private:<owner scope>` on write; recall filters by speaker, matching only user-level scope in groups and also the session owner in private chats, while unowned private labels stay invisible |
+| Memory freshness states | `freshness_settings.enabled` | Derives `timeless` / `current` / `pending` / `outdated` from `valid_until` and `superseded_by`; injection prepends a Chinese notice, with expired and superseded notices switchable separately |
+| Injection trigger modes | `recall_engine.injection_mode` | `auto` injects every turn (default); `on_demand` skips injection and instead hints the model to call the recall tool; `hybrid` injects only when the best similarity reaches `recall_engine.hybrid_auto_threshold` (default 0.55) |
+| Speaker-locked injection | `recall_engine.speaker_locked_injection` | Group chats keep only the current speaker's user-level memories, this group's shared memories and global memories |
+
+Freshness states are never persisted; they are derived on every read. Privacy labels are written to `documents.metadata.privacy` only while the switch is on. The memory list API returns both fields and the edit API accepts them; the dashboard table does not render them yet.
+
+### Not implemented
+
+- Automatic supersede rewriting: `outdated` is advisory only; the plugin never points an old memory's `superseded_by` at a newer one, which the upstream consolidation flow still owns.
+
+Field design and target files are in [ANALYSIS.md](ANALYSIS.md).
 
 ## Keep exploring
 

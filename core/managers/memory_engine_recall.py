@@ -13,6 +13,8 @@ import aiosqlite
 from astrbot.api import logger
 
 from ...storage.atom_store import AtomStore
+from ..memory_freshness import derive_time_status
+from ..memory_privacy import config_value, filter_by_privacy, metadata_privacy
 from ..memory_scope import (
     adapter_cache_key,
     adapter_sql,
@@ -77,6 +79,8 @@ class MemoryEngineRecallMixin:
         persona_id: str | None = None,
         *,
         extra_scopes: list[str] | None = None,
+        viewer_scope: str | None = None,
+        is_group: bool = False,
     ) -> list[HybridResult]:
         """
         检索相关记忆
@@ -87,6 +91,9 @@ class MemoryEngineRecallMixin:
             session_id: 会话ID过滤(可选,应传入unified_msg_origin完整格式)
             persona_id: 人格ID过滤(可选)
             extra_scopes: 与主作用域并联检索的附加作用域（如频道公共记忆）。
+            viewer_scope: 当前发言者的用户级作用域，用于 privacy 逐条可见性过滤；
+                缺省时不区分观察者（等价于只看 public）。
+            is_group: 当前事件是否群聊，影响 privacy 严格模式。
 
         Returns:
             List[HybridResult]: 检索结果列表
@@ -116,6 +123,8 @@ class MemoryEngineRecallMixin:
                 recorder,
                 trace,
                 rejected,
+                viewer_scope=viewer_scope,
+                is_group=is_group,
             )
         except asyncio.CancelledError:
             if trace is not None and recorder is not None:
@@ -166,6 +175,9 @@ class MemoryEngineRecallMixin:
         recorder,
         trace,
         rejected: dict[str, int] | None,
+        *,
+        viewer_scope: str | None = None,
+        is_group: bool = False,
     ) -> list[HybridResult]:
         """召回主流程；trace 为 None 时只多一次布尔判断。"""
         trace_active = trace is not None and recorder is not None
@@ -179,6 +191,16 @@ class MemoryEngineRecallMixin:
             cached_results = await self._apply_atom_policy(cached_results)
             if trace_active:
                 self._note_atom_filter(trace, atom_before, len(cached_results))
+            cached_results, privacy_removed = self._filter_by_privacy(
+                cached_results,
+                viewer_scope=viewer_scope,
+                is_group=is_group,
+                viewer_session_id=scope_filter
+                if isinstance(scope_filter, str)
+                else None,
+            )
+            if trace_active and privacy_removed:
+                self._note_privacy_filter(trace, privacy_removed)
             await self._update_access_times_internal(
                 [result.doc_id for result in cached_results],
                 [
@@ -334,7 +356,17 @@ class MemoryEngineRecallMixin:
                 ],
             )
 
+        # 缓存里保存的是"未按观察者过滤"的候选：同一作用域下不同发言人的
+        # 可见集合不同，privacy 过滤必须在读取侧执行，不能写进缓存。
         self._set_cached_search_results(cache_key, results)
+        results, privacy_removed = self._filter_by_privacy(
+            results,
+            viewer_scope=viewer_scope,
+            is_group=is_group,
+            viewer_session_id=scope_filter if isinstance(scope_filter, str) else None,
+        )
+        if trace_active and privacy_removed:
+            self._note_privacy_filter(trace, privacy_removed)
         if trace_active:
             self._finalize_recall_trace(recorder, trace, results)
         return results
@@ -347,6 +379,46 @@ class MemoryEngineRecallMixin:
         trace.notes.append(f"atom_filter:{removed}")
         rejected = trace.filters.setdefault("rejected", {})
         rejected["atom_expired"] = rejected.get("atom_expired", 0) + removed
+
+    def _filter_by_privacy(
+        self,
+        results: list[HybridResult],
+        *,
+        viewer_scope: str | None,
+        is_group: bool,
+        viewer_session_id: str | None = None,
+    ) -> tuple[list[HybridResult], int]:
+        """按 privacy 逐条标签过滤候选。
+
+        Args:
+            results: 候选列表。
+            viewer_scope: 当前发言者的用户级作用域。
+            is_group: 当前事件是否群聊。
+            viewer_session_id: 当前会话 ID（私聊下兼容按会话归属的私有标签）。
+
+        Returns:
+            ``(保留列表, 被过滤条数)``；``privacy_settings.enabled`` 关闭时原样返回。
+        """
+        enabled = bool(config_value(self.config, "privacy_settings.enabled", False))
+        strict = bool(
+            config_value(self.config, "privacy_settings.strict_in_group", True)
+        )
+        return filter_by_privacy(
+            results,
+            viewer_scope=viewer_scope,
+            viewer_session_id=viewer_session_id,
+            strict_in_group=strict,
+            is_group=is_group,
+            enabled=enabled,
+        )
+
+    def _note_privacy_filter(self, trace, removed: int) -> None:
+        """记录被 privacy 标签过滤掉的候选数。"""
+        if removed <= 0:
+            return
+        trace.notes.append(f"privacy_filter:{removed}")
+        rejected = trace.filters.setdefault("rejected", {})
+        rejected["privacy"] = rejected.get("privacy", 0) + int(removed)
 
     def _record_filter_summary(
         self,
@@ -658,6 +730,12 @@ class MemoryEngineRecallMixin:
             }
             for row in rows
         ]
+        # 面板展示用的派生字段：隐私标签与时效状态。二者都是实时推导，
+        # 不写回数据库，开关关闭时也照常返回默认值（public / timeless）。
+        for item in items:
+            metadata_dict = safe_json_dict(item.get("metadata"))
+            item["privacy"] = metadata_privacy(metadata_dict)
+            item["time_status"] = derive_time_status(metadata_dict)
         return {
             "items": items,
             "total": total,

@@ -338,6 +338,34 @@
                     "extra_user_content"
                 ]
             },
+            "injection_mode": {
+                "description": "记忆注入触发模式",
+                "hint": "auto：每次对话都注入召回结果（默认，与旧版行为一致）。on_demand：不主动注入，改为在系统提示中提示模型调用记忆检索工具。hybrid：仅在最高相似度达到阈值时注入，否则退回按需检索。",
+                "type": "string",
+                "default": "auto",
+                "options": [
+                    "auto",
+                    "on_demand",
+                    "hybrid"
+                ]
+            },
+            "hybrid_auto_threshold": {
+                "description": "hybrid 模式的自动注入阈值",
+                "hint": "仅当召回结果的最高相似度达到该值时自动注入，否则改为提示模型按需检索。（允许范围：0–1）",
+                "type": "float",
+                "default": 0.55,
+                "slider": {
+                    "min": 0.0,
+                    "max": 1.0,
+                    "step": 0.05
+                }
+            },
+            "speaker_locked_injection": {
+                "description": "群聊按发言人锁定注入",
+                "hint": "群聊中只注入当前发言人的用户级记忆、本群公共记忆与全局记忆，不注入其他成员的私人画像。默认关闭。",
+                "type": "bool",
+                "default": false
+            },
             "auto_remove_injected": {
                 "description": "自动清除历史注入残留",
                 "hint": "注入新记忆前自动从请求上下文中移除老版本注入方式残留在对话历史里的记忆片段（新版本注入不会产生残留）。建议开启。",
@@ -388,6 +416,60 @@
                     "max": 10000,
                     "step": 1
                 }
+            }
+        }
+    },
+    "privacy_settings": {
+        "description": "记忆隐私标签",
+        "hint": "为每条记忆附加 privacy 标签（public 或 private:归属），召回时按当前发言人过滤私有记忆。默认关闭，关闭时行为与升级前完全一致。",
+        "type": "object",
+        "items": {
+            "enabled": {
+                "description": "启用逐条隐私标签",
+                "hint": "开启后写入侧为每条记忆规范化 privacy 字段，召回侧按发言人过滤 private 记忆。升级前写入的历史记忆没有该字段，按 public 处理。",
+                "type": "bool",
+                "default": false
+            },
+            "default_label": {
+                "description": "默认隐私标签",
+                "hint": "模型未给出隐私标签时使用的默认值：public 表示所有可召回场景可见；private 表示仅写入者本人可见。",
+                "type": "string",
+                "default": "public",
+                "options": [
+                    "public",
+                    "private"
+                ]
+            },
+            "strict_in_group": {
+                "description": "群聊严格过滤私有记忆",
+                "hint": "开启后群聊中私有记忆只回给写入者本人；关闭后私有记忆在群聊中也不过滤（不建议）。",
+                "type": "bool",
+                "default": true
+            }
+        }
+    },
+    "freshness_settings": {
+        "description": "记忆时效性",
+        "hint": "根据 valid_until 与取代关系推导记忆的时效状态（无时效/有效/待复核/已取代），并在注入时附加提醒。默认关闭。",
+        "type": "object",
+        "items": {
+            "enabled": {
+                "description": "启用时效状态与提醒",
+                "hint": "开启后召回结果会附带时效状态，过期或已被取代的记忆在注入文本里附加中文提醒。状态实时推导，不写入数据库。",
+                "type": "bool",
+                "default": false
+            },
+            "remind_expired": {
+                "description": "提醒已过期待复核记忆",
+                "hint": "对已过 valid_until 的记忆附加「待复核」提醒，提示模型核实后再使用。",
+                "type": "bool",
+                "default": true
+            },
+            "remind_superseded": {
+                "description": "提醒已被取代记忆",
+                "hint": "对存在 superseded_by 的记忆附加「已取代」提醒，提示模型改用取代后的新记忆。",
+                "type": "bool",
+                "default": true
             }
         }
     },

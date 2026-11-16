@@ -14,10 +14,13 @@ from astrbot.api.platform import MessageType
 from astrbot.api.provider import ProviderRequest
 from astrbot.core.agent.message import TextPart
 
+from ..memory_freshness import freshness_notice
+from ..memory_privacy import USER_SCOPE_PREFIX
 from ..memory_scope import (
     is_event_memory_allowed,
     is_suspicious_session_id,
     resolve_event_memory_access,
+    resolve_user_memory_scope,
 )
 from ..retrieval.recall_trace import trace_request_context
 from ..utils import (
@@ -243,19 +246,29 @@ class MemoryRecall:
                 )
 
                 channel_scope = recall_access.channel_scope
+                injection_mode = self._injection_mode()
                 with trace_request_context(
                     session_id=session_id,
                     scope=recall_session_id,
                     persona_id=recall_persona_id,
                 ) as request_trace:
                     try:
-                        recalled_memories = await self.memory_engine.search_memories(
-                            query=query_for_search,
-                            k=self.config_manager.get("recall_engine.top_k", 5),
-                            session_id=recall_session_id,
-                            persona_id=recall_persona_id,
-                            extra_scopes=[channel_scope] if channel_scope else None,
-                        )
+                        if injection_mode == "on_demand":
+                            # on_demand：不自动召回，只保留 Agent 主动调用工具
+                            # 的链路；用户档案仍按固定短块注入。
+                            recalled_memories = []
+                            logger.debug(
+                                f"[{session_id}] injection_mode=on_demand，跳过自动召回"
+                            )
+                        else:
+                            recalled_memories = await self._search_memories_for_event(
+                                event,
+                                query=query_for_search,
+                                session_id=recall_session_id,
+                                persona_id=recall_persona_id,
+                                channel_scope=channel_scope,
+                                is_group=is_group,
+                            )
                     except asyncio.CancelledError:
                         raise
                     except Exception:
@@ -265,6 +278,44 @@ class MemoryRecall:
                             exc_info=True,
                         )
                         recalled_memories = []
+
+                # hybrid：最高相似度不达标时丢弃本轮记忆，只保留工具提示。
+                if injection_mode == "hybrid" and recalled_memories:
+                    threshold = float(
+                        self.config_manager.get(
+                            "recall_engine.hybrid_auto_threshold", 0.55
+                        )
+                        or 0.0
+                    )
+                    best_score = max(
+                        float(getattr(mem, "final_score", 0.0) or 0.0)
+                        for mem in recalled_memories
+                    )
+                    if best_score < threshold:
+                        logger.debug(
+                            f"[{session_id}] hybrid 模式最高分 {best_score:.3f} "
+                            f"< {threshold}，跳过注入"
+                        )
+                        recalled_memories = []
+
+                # 群聊按发言人锁定注入：丢弃其他人的 user 级个人记忆。
+                if (
+                    recalled_memories
+                    and is_group
+                    and bool(
+                        self.config_manager.get(
+                            "recall_engine.speaker_locked_injection", False
+                        )
+                    )
+                ):
+                    recalled_memories, dropped_by_speaker = self._filter_by_speaker_lock(
+                        event, recalled_memories
+                    )
+                    if dropped_by_speaker:
+                        logger.debug(
+                            f"[{session_id}] 发言人锁定注入过滤 "
+                            f"{dropped_by_speaker} 条他人个人记忆"
+                        )
                 # 用户档案是固定短块：不占 top_k 名额，只计入追加的注入字符预算。
                 profile_text = await self._load_profile_injection_text(
                     recall_session_id, recall_persona_id
@@ -296,8 +347,29 @@ class MemoryRecall:
                             f"内容={mem.content[:100]}..."
                         )
 
+                    freshness_enabled = bool(
+                        self.config_manager.get("freshness_settings.enabled", False)
+                    )
+                    notice = ""
+                    if freshness_enabled:
+                        notice = freshness_notice(
+                            recalled_memories,
+                            remind_expired=bool(
+                                self.config_manager.get(
+                                    "freshness_settings.remind_expired", True
+                                )
+                            ),
+                            remind_superseded=bool(
+                                self.config_manager.get(
+                                    "freshness_settings.remind_superseded", True
+                                )
+                            ),
+                        )
+
                     try:
-                        memory_str = format_memories_for_injection(memory_list)
+                        memory_str = format_memories_for_injection(
+                            memory_list, notice=notice
+                        )
                     except asyncio.CancelledError:
                         raise
                     except Exception:
@@ -339,10 +411,93 @@ class MemoryRecall:
                     self._record_trace_note(request_trace, "no_results")
                     logger.debug(f"[{session_id}] 未找到相关记忆或用户档案")
 
+                if injection_mode == "on_demand":
+                    self._append_on_demand_hint(req)
+
         except asyncio.CancelledError:
             raise
         except Exception as e:
             logger.error(f"处理 on_llm_request 钩子时发生错误: {e}", exc_info=True)
+
+    def _injection_mode(self) -> str:
+        """读取注入触发模式；非法值回落到 ``auto``（与 2.13.0 行为一致）。"""
+        raw = str(
+            self.config_manager.get("recall_engine.injection_mode", "auto") or "auto"
+        )
+        mode = raw.strip().casefold()
+        return mode if mode in {"auto", "on_demand", "hybrid"} else "auto"
+
+    async def _search_memories_for_event(
+        self,
+        event: AstrMessageEvent,
+        *,
+        query: str,
+        session_id: str | None,
+        persona_id: str | None,
+        channel_scope: str | None,
+        is_group: bool,
+    ):
+        """执行召回；privacy 开启时把观察者作用域一并传给引擎。
+
+        Args:
+            event: 当前消息事件。
+            query: 召回查询串。
+            session_id: 主作用域。
+            persona_id: 人格 ID。
+            channel_scope: 频道公共记忆作用域。
+            is_group: 是否群聊事件。
+
+        Returns:
+            召回结果列表。
+        """
+        kwargs = {
+            "query": query,
+            "k": self.config_manager.get("recall_engine.top_k", 5),
+            "session_id": session_id,
+            "persona_id": persona_id,
+            "extra_scopes": [channel_scope] if channel_scope else None,
+        }
+        if bool(self.config_manager.get("privacy_settings.enabled", False)):
+            kwargs["viewer_scope"] = resolve_user_memory_scope(
+                self.config_manager, event
+            )
+            kwargs["is_group"] = is_group
+        return await self.memory_engine.search_memories(**kwargs)
+
+    def _filter_by_speaker_lock(self, event: AstrMessageEvent, memories: list):
+        """群聊下只保留当前发言人的 user 级记忆与共享/全局记忆。
+
+        Args:
+            event: 当前消息事件。
+            memories: 召回结果。
+
+        Returns:
+            ``(保留列表, 被丢弃条数)``。
+        """
+        speaker_scope = resolve_user_memory_scope(self.config_manager, event)
+        kept = []
+        dropped = 0
+        for memory in memories:
+            metadata = getattr(memory, "metadata", None) or {}
+            scope = str(metadata.get("session_id") or "")
+            if scope.startswith(USER_SCOPE_PREFIX) and scope != speaker_scope:
+                dropped += 1
+                continue
+            kept.append(memory)
+        return kept, dropped
+
+    def _append_on_demand_hint(self, req: ProviderRequest) -> None:
+        """on_demand 模式下提示模型可主动调用记忆工具，避免记忆等于失效。"""
+        hint = (
+            "\n\n[记忆提示] 自动记忆注入已关闭（on_demand）。"
+            "如需回忆历史信息，请主动调用记忆检索工具。"
+        )
+        current = getattr(req, "system_prompt", None)
+        if not isinstance(current, str):
+            return
+        if hint.strip() in current:
+            return
+        req.system_prompt = current + hint
 
     @staticmethod
     def _get_profile_manager(memory_engine):
