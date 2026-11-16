@@ -452,6 +452,7 @@ body {
 .data-table .cell-select { width: 44px; text-align: center; padding-left: var(--space-2); padding-right: var(--space-2); }
 .data-table .cell-summary { width: auto; min-width: 320px; }
 .data-table .cell-type { width: 100px; }
+.data-table .cell-privacy { width: 84px; }
 .data-table .cell-importance { width: 140px; }
 .data-table .cell-status { width: 90px; }
 .data-table .cell-created { width: 140px; }
@@ -570,6 +571,28 @@ body {
   font-weight: 500;
   background: var(--bg-hover);
   color: var(--text-secondary);
+}
+
+/* Privacy tag: 公开 / 私有，独立列显示，颜色区分 */
+.privacy-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 18px;
+  white-space: nowrap;
+  background: color-mix(in srgb, var(--accent, #3b82f6) 12%, transparent);
+  color: var(--accent, #3b82f6);
+  border: 1px solid color-mix(in srgb, var(--accent, #3b82f6) 30%, transparent);
+}
+
+.privacy-badge.is-private {
+  background: color-mix(in srgb, #f59e0b 16%, transparent);
+  color: #b45309;
+  border-color: color-mix(in srgb, #f59e0b 45%, transparent);
 }
 
 /* Empty state */

@@ -203,7 +203,7 @@ export class MemoryPage {
     );
     const padTop = start * rowHeight;
     const padBottom = totalHeight - end * rowHeight;
-    const columns = window.matchMedia?.("(max-width: 768px)").matches ? 4 : 7;
+    const columns = window.matchMedia?.("(max-width: 768px)").matches ? 4 : 8;
     const slice = `${start}:${end}:${rowHeight}:${columns}`;
     if (slice === this._visibleSlice) return;
     this._visibleSlice = slice;
@@ -229,11 +229,13 @@ export class MemoryPage {
       const lowQuality = item.summary_quality === "low";
       const originTag = '<span class="origin-tag' + (lowQuality ? " is-low" : "") + '"' + (lowQuality ? ' title="' + esc(window.t("detail.qualityLow")) + '"' : "") + '>' + esc(originLabel(item.origin)) + '</span>';
       const isPrivate = String(item.privacy || "").indexOf("private:") === 0;
-      const metaTags = '<span class="type-tag privacy-badge' + (isPrivate ? " is-private" : "") + '">' + esc(window.t(isPrivate ? "table.privacyPrivate" : "table.privacyPublic")) + '</span>'
-        + (item.time_status === "pending" ? '<span class="type-tag time-badge">' + esc(window.t("table.timePending")) + '</span>' : "")
+      const privacyCell = '<span class="privacy-badge' + (isPrivate ? " is-private" : "") + '">'
+        + esc(window.t(isPrivate ? "table.privacyPrivate" : "table.privacyPublic")) + '</span>';
+      const timeTags = (item.time_status === "pending" ? '<span class="type-tag time-badge">' + esc(window.t("table.timePending")) + '</span>' : "")
         + (item.time_status === "outdated" ? '<span class="type-tag time-badge">' + esc(window.t("table.timeOutdated")) + '</span>' : "");
-      html += '<td class="cell-summary"><div class="memory-summary-line">' + consBadge + '<button class="memory-open memory-summary-text" type="button" aria-label="' + esc(window.t("table.openMemory", item.memory_id)) + '">' + esc(item.summary || "") + '</button></div><div class="memory-summary-meta">' + originTag + metaTags + '<span>' + esc(window.t("table.updated", item.updated_at || "--")) + '</span></div></td>';
+      html += '<td class="cell-summary"><div class="memory-summary-line">' + consBadge + '<button class="memory-open memory-summary-text" type="button" aria-label="' + esc(window.t("table.openMemory", item.memory_id)) + '">' + esc(item.summary || "") + '</button></div><div class="memory-summary-meta">' + originTag + timeTags + '<span>' + esc(window.t("table.updated", item.updated_at || "--")) + '</span></div></td>';
       html += '<td class="cell-type"><span class="type-tag">' + esc(typeLabel(item.memory_type)) + '</span></td>';
+      html += '<td class="cell-privacy">' + privacyCell + '</td>';
       html += '<td class="cell-importance"><div class="importance-bar"><div class="importance-bar-track">';
       html += '<div class="importance-bar-fill ' + impCls + '" style="width:' + (impNum * 10) + '%"></div></div>';
       html += '<span style="font-size:12px;color:var(--text-secondary)">' + imp + '</span></div></td>';
@@ -278,7 +280,7 @@ export class MemoryPage {
    */
   renderEmpty() {
     const tbody = document.getElementById("memories-body");
-    const columns = window.matchMedia?.("(max-width: 768px)").matches ? 4 : 7;
+    const columns = window.matchMedia?.("(max-width: 768px)").matches ? 4 : 8;
     tbody.innerHTML = '<tr><td colspan="' + columns + '" class="table-empty">' +
       '<div class="empty-state"><i data-lucide="database" aria-hidden="true"></i><span>' +
       window.t("table.noData") + "</span></div></td></tr>";
