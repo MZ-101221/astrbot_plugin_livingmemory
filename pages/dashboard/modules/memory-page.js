@@ -228,7 +228,8 @@ export class MemoryPage {
         : "";
       const lowQuality = item.summary_quality === "low";
       const originTag = '<span class="origin-tag' + (lowQuality ? " is-low" : "") + '"' + (lowQuality ? ' title="' + esc(window.t("detail.qualityLow")) + '"' : "") + '>' + esc(originLabel(item.origin)) + '</span>';
-      const metaTags = (String(item.privacy || "").indexOf("private:") === 0 ? '<span class="type-tag privacy-badge">' + esc(window.t("table.privacyPrivate")) + '</span>' : "")
+      const isPrivate = String(item.privacy || "").indexOf("private:") === 0;
+      const metaTags = '<span class="type-tag privacy-badge' + (isPrivate ? " is-private" : "") + '">' + esc(window.t(isPrivate ? "table.privacyPrivate" : "table.privacyPublic")) + '</span>'
         + (item.time_status === "pending" ? '<span class="type-tag time-badge">' + esc(window.t("table.timePending")) + '</span>' : "")
         + (item.time_status === "outdated" ? '<span class="type-tag time-badge">' + esc(window.t("table.timeOutdated")) + '</span>' : "");
       html += '<td class="cell-summary"><div class="memory-summary-line">' + consBadge + '<button class="memory-open memory-summary-text" type="button" aria-label="' + esc(window.t("table.openMemory", item.memory_id)) + '">' + esc(item.summary || "") + '</button></div><div class="memory-summary-meta">' + originTag + metaTags + '<span>' + esc(window.t("table.updated", item.updated_at || "--")) + '</span></div></td>';

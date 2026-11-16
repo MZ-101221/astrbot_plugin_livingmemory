@@ -189,6 +189,7 @@
     "table.consolidated": { zh: "整合 {0}", en: "Merged {0}", ru: "Объединено {0}" },
     "table.consolidatedTitle":{ zh: "由记忆整合合并产生", en: "Produced by memory consolidation", ru: "Создано консолидацией памяти" },
     "table.privacyPrivate":   { zh: "私有", en: "Private", ru: "Приватная" },
+    "table.privacyPublic":    { zh: "公开", en: "Public", ru: "Публичная" },
     "table.timePending":      { zh: "待复核", en: "Review", ru: "Проверить" },
     "table.timeOutdated":     { zh: "已取代", en: "Superseded", ru: "Заменено" },
 
@@ -845,6 +846,7 @@
     "table.consolidated": "統合 {0}",
     "table.consolidatedTitle": "記憶統合による結合",
     "table.privacyPrivate": "非公開",
+    "table.privacyPublic": "公開",
     "table.timePending": "要確認",
     "table.timeOutdated": "置換済",
     "table.created": "作成日時",
