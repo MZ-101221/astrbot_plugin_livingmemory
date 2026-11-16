@@ -81,6 +81,7 @@ class MemoryEngineRecallMixin:
         extra_scopes: list[str] | None = None,
         viewer_scope: str | None = None,
         is_group: bool = False,
+        allowed_atom_types: list[str] | None = None,
     ) -> list[HybridResult]:
         """
         检索相关记忆
@@ -94,6 +95,9 @@ class MemoryEngineRecallMixin:
             viewer_scope: 当前发言者的用户级作用域，用于 privacy 逐条可见性过滤；
                 缺省时不区分观察者（等价于只看 public）。
             is_group: 当前事件是否群聊，影响 privacy 严格模式。
+            allowed_atom_types: 只保留这些原子类型（如群聊场景 ``["episodic",
+                "factual"]``）；缺省不按类型过滤，行为与旧版一致。无 ``atom_types``
+                元数据的记忆按 ``unknown`` 处理，过滤开启时会被丢弃。
 
         Returns:
             List[HybridResult]: 检索结果列表
@@ -125,6 +129,7 @@ class MemoryEngineRecallMixin:
                 rejected,
                 viewer_scope=viewer_scope,
                 is_group=is_group,
+                allowed_atom_types=allowed_atom_types,
             )
         except asyncio.CancelledError:
             if trace is not None and recorder is not None:
@@ -178,6 +183,7 @@ class MemoryEngineRecallMixin:
         *,
         viewer_scope: str | None = None,
         is_group: bool = False,
+        allowed_atom_types: list[str] | None = None,
     ) -> list[HybridResult]:
         """召回主流程；trace 为 None 时只多一次布尔判断。"""
         trace_active = trace is not None and recorder is not None
@@ -201,6 +207,11 @@ class MemoryEngineRecallMixin:
             )
             if trace_active and privacy_removed:
                 self._note_privacy_filter(trace, privacy_removed)
+            cached_results, atom_type_removed = self._filter_by_atom_types(
+                cached_results, allowed_atom_types
+            )
+            if trace_active and atom_type_removed:
+                self._note_atom_type_filter(trace, atom_type_removed)
             await self._update_access_times_internal(
                 [result.doc_id for result in cached_results],
                 [
@@ -367,6 +378,11 @@ class MemoryEngineRecallMixin:
         )
         if trace_active and privacy_removed:
             self._note_privacy_filter(trace, privacy_removed)
+        results, atom_type_removed = self._filter_by_atom_types(
+            results, allowed_atom_types
+        )
+        if trace_active and atom_type_removed:
+            self._note_atom_type_filter(trace, atom_type_removed)
         if trace_active:
             self._finalize_recall_trace(recorder, trace, results)
         return results
@@ -419,6 +435,56 @@ class MemoryEngineRecallMixin:
         trace.notes.append(f"privacy_filter:{removed}")
         rejected = trace.filters.setdefault("rejected", {})
         rejected["privacy"] = rejected.get("privacy", 0) + int(removed)
+
+    def _filter_by_atom_types(
+        self,
+        results: list[HybridResult],
+        allowed_atom_types: list[str] | None,
+    ) -> tuple[list[HybridResult], int]:
+        """按 ``metadata.atom_types`` 过滤候选。
+
+        Args:
+            results: 候选列表。
+            allowed_atom_types: 允许的原子类型集合；``None`` 或空表示不过滤。
+
+        Returns:
+            ``(保留列表, 被过滤条数)``。缺少 ``atom_types`` 的记忆按 ``unknown``
+            处理，过滤开启时一并丢弃。
+        """
+        if not allowed_atom_types:
+            return results, 0
+        allowed = {
+            str(value).strip().casefold()
+            for value in allowed_atom_types
+            if str(value).strip()
+        }
+        if not allowed:
+            return results, 0
+        kept: list[HybridResult] = []
+        removed = 0
+        for result in results:
+            metadata = result.metadata if isinstance(result.metadata, dict) else {}
+            raw = metadata.get("atom_types")
+            if isinstance(raw, str):
+                values = [raw]
+            elif isinstance(raw, (list, tuple, set, frozenset)):
+                values = [str(item) for item in raw]
+            else:
+                values = []
+            types = {value.strip().casefold() for value in values if value.strip()}
+            if (types or {"unknown"}) & allowed:
+                kept.append(result)
+            else:
+                removed += 1
+        return kept, removed
+
+    def _note_atom_type_filter(self, trace, removed: int) -> None:
+        """记录被原子类型过滤掉的候选数。"""
+        if removed <= 0:
+            return
+        trace.notes.append(f"atom_type_filter:{removed}")
+        rejected = trace.filters.setdefault("rejected", {})
+        rejected["atom_type"] = rejected.get("atom_type", 0) + int(removed)
 
     def _record_filter_summary(
         self,
