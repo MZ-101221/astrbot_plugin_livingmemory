@@ -14,7 +14,7 @@
 
 - 取代判定直接复用上游 2.10.0 的 ``superseded_by``，不新增指针。
 - 注入前缀按状态合并成一行，不逐条追加，避免挤压注入预算。
-- 总开关 ``freshness_settings.enabled`` 默认关闭。
+- 总开关 ``freshness_settings.enabled`` 默认开启。
 """
 
 from __future__ import annotations

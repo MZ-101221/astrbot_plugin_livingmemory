@@ -170,7 +170,7 @@ class MemoryMemorizeTool(FunctionTool[AstrAgentContext]):
                 # 隐私标签与时效：仅在对应开关开启时规范化，关闭时 metadata
                 # 结构与升级前保持一致（不写入任何新键）。
                 if bool(
-                    config_value(self.config_manager, "privacy_settings.enabled", False)
+                    config_value(self.config_manager, "privacy_settings.enabled", True)
                 ) and str(privacy or "").strip():
                     metadata["privacy"] = privacy
                     apply_privacy_field(
@@ -186,7 +186,7 @@ class MemoryMemorizeTool(FunctionTool[AstrAgentContext]):
                         ),
                     )
                 if bool(
-                    config_value(self.config_manager, "freshness_settings.enabled", False)
+                    config_value(self.config_manager, "freshness_settings.enabled", True)
                 ) and str(valid_until or "").strip():
                     metadata["valid_until"] = valid_until
                     apply_valid_until_field(metadata)

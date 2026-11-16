@@ -9,23 +9,24 @@
 
 ## [2.14.0] - 2026-11-17
 
-2.14.0 基于上游 2.13.0，补上原设计里剩余的四项能力，全部以配置开关提供、默认关闭：关闭时行为与 2.13.0 一致，不写入任何新 metadata 键。无数据库结构变化，无需迁移。
+2.14.0 基于上游 2.13.0，补上原设计里剩余的四项能力，全部以配置开关提供、**默认开启**；关掉开关即回到 2.13.0 的行为，不写入任何新 metadata 键。无数据库结构变化，无需迁移。
 
 ### 新增
 
-- **逐条隐私标签**：`privacy_settings.enabled`（默认 false）。写入时把 `privacy` 规范为 `public` 或 `private:<归属作用域>`，召回侧按发言人过滤；群聊只比对用户级作用域，私聊兼容会话归属，无主私有标签按不可见处理。
-- **记忆时效状态**：`freshness_settings.enabled`（默认 false）。由 `metadata.valid_until` 与 `superseded_by` 实时推导 `timeless` / `current` / `pending` / `outdated`，注入时按状态附加提醒；过期与被取代两类提醒可分别关闭。状态不落库。
+- **逐条隐私标签**：`privacy_settings.enabled`（默认 true）。写入时把 `privacy` 规范为 `public` 或 `private:<归属作用域>`，召回侧按发言人过滤；群聊只比对用户级作用域，私聊兼容会话归属，无主私有标签按不可见处理。
+- **记忆时效状态**：`freshness_settings.enabled`（默认 true）。由 `metadata.valid_until` 与 `superseded_by` 实时推导 `timeless` / `current` / `pending` / `outdated`，注入时按状态附加提醒；过期与被取代两类提醒可分别关闭。状态不落库。
 - **注入触发模式**：`recall_engine.injection_mode`（`auto` / `on_demand` / `hybrid`，默认 `auto`）。`on_demand` 跳过注入，改为在系统提示中提示模型调用检索工具；`hybrid` 仅在最高相似度达到 `recall_engine.hybrid_auto_threshold`（默认 0.55）时注入。
-- **按发言人锁定注入**：`recall_engine.speaker_locked_injection`（默认 false）。群聊只保留当前发言人的用户级记忆、本群公共记忆与全局记忆。
+- **按发言人锁定注入**：`recall_engine.speaker_locked_injection`（默认 true）。群聊只保留当前发言人的用户级记忆、本群公共记忆与全局记忆。
 
 ### 变更
 
 - `metadata.yaml` 的 `repo` 指向本 fork。
 - 记忆列表接口返回派生字段 `privacy` 与 `time_status`；编辑接口支持修改 `privacy` 与 `valid_until`；`memory_memorize` 工具新增可选参数 `privacy`、`valid_until`。
+- 仪表盘记忆表格在摘要行显示「私有」「待复核」「已取代」徽标（中/英/俄/日），并重新生成 `assets/*.min.js`（首屏 gzip 81,813 B，预算 81,920 B）。
 
 ### 未做
 
-- 仪表盘表格未加列展示上述两个字段（接口已具备数据）。
+- 仪表盘只在摘要行做徽标提示，未新增独立表头列；批量编辑对话框暂不含 `privacy` / `valid_until`。
 - 不新增索引与迁移：隐私过滤在读取侧按 metadata 判断。
 
 ## [2.13.0] - 2026-11-13

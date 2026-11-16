@@ -399,7 +399,7 @@ class MemoryEngineRecallMixin:
         Returns:
             ``(保留列表, 被过滤条数)``；``privacy_settings.enabled`` 关闭时原样返回。
         """
-        enabled = bool(config_value(self.config, "privacy_settings.enabled", False))
+        enabled = bool(config_value(self.config, "privacy_settings.enabled", True))
         strict = bool(
             config_value(self.config, "privacy_settings.strict_in_group", True)
         )

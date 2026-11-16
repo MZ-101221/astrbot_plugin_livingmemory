@@ -66,7 +66,7 @@ LivingMemory 的语义召回依赖 Embedding Provider，推荐硅基流动当前
 
 ## 本仓库的规划功能
 
-本仓库在 2.13.0 基础上继续开发。原设计中的记忆作用域、取代链、用户档案、群共享与外部接口已由上游实现；本仓库补上剩余四项，全部以配置开关提供，默认关闭，升级后行为与 2.13.0 一致。
+本仓库在 2.13.0 基础上继续开发。原设计中的记忆作用域、取代链、用户档案、群共享与外部接口已由上游实现；本仓库补上剩余四项，全部以配置开关提供并默认开启；把开关关掉即回到 2.13.0 的行为。
 
 ### 上游 2.13.0 已实现
 
@@ -78,7 +78,7 @@ LivingMemory 的语义召回依赖 Embedding Provider，推荐硅基流动当前
 | 群共享池 | 频道公共记忆 `livingmemory:channel:<平台>:<群ID>`，与个人作用域合并召回，默认关闭 |
 | 外部接口 | `core/external_api_server.py` 提供本地 HTTP API，`scripts/memory_mcp_server.py` 提供 MCP 接入 |
 
-### 本仓库新增（默认关闭）
+### 本仓库新增（默认开启）
 
 | 功能 | 开关 | 行为 |
 | --- | --- | --- |
@@ -87,7 +87,7 @@ LivingMemory 的语义召回依赖 Embedding Provider，推荐硅基流动当前
 | 注入触发模式 | `recall_engine.injection_mode` | `auto` 每轮注入（默认）；`on_demand` 不主动注入，改为在系统提示中提示模型调用检索工具；`hybrid` 仅当最高相似度达到 `recall_engine.hybrid_auto_threshold`（默认 0.55）时注入 |
 | 按发言人锁定注入 | `recall_engine.speaker_locked_injection` | 群聊只保留当前发言人的用户级记忆、本群公共记忆与全局记忆 |
 
-时效状态不落库，每次按 `valid_until` 与取代关系实时推导；隐私标签仅在开关打开时随写入落到 `documents.metadata.privacy`。记忆列表接口已返回 `privacy` 与 `time_status`，编辑接口支持修改这两个字段；仪表盘表格尚未加列展示。
+时效状态不落库，每次按 `valid_until` 与取代关系实时推导；隐私标签仅在开关打开时随写入落到 `documents.metadata.privacy`。记忆列表接口返回 `privacy` 与 `time_status`，编辑接口支持修改这两个字段，仪表盘记忆表格在摘要行显示「私有」「待复核」「已取代」徽标。
 
 ### 尚未实现
 

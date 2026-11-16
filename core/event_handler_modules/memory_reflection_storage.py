@@ -144,7 +144,7 @@ class MemoryReflectionStorageMixin:
         if not isinstance(metadata, dict):
             return metadata
         result = dict(metadata)
-        if bool(self.config_manager.get("privacy_settings.enabled", False)):
+        if bool(self.config_manager.get("privacy_settings.enabled", True)):
             apply_privacy_field(
                 result,
                 owner_scope=memory_scope,
@@ -153,7 +153,7 @@ class MemoryReflectionStorageMixin:
                     or "public"
                 ),
             )
-        if bool(self.config_manager.get("freshness_settings.enabled", False)):
+        if bool(self.config_manager.get("freshness_settings.enabled", True)):
             apply_valid_until_field(result)
         return result
 

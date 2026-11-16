@@ -304,7 +304,7 @@ class MemoryRecall:
                     and is_group
                     and bool(
                         self.config_manager.get(
-                            "recall_engine.speaker_locked_injection", False
+                            "recall_engine.speaker_locked_injection", True
                         )
                     )
                 ):
@@ -348,7 +348,7 @@ class MemoryRecall:
                         )
 
                     freshness_enabled = bool(
-                        self.config_manager.get("freshness_settings.enabled", False)
+                        self.config_manager.get("freshness_settings.enabled", True)
                     )
                     notice = ""
                     if freshness_enabled:
@@ -457,7 +457,7 @@ class MemoryRecall:
             "persona_id": persona_id,
             "extra_scopes": [channel_scope] if channel_scope else None,
         }
-        if bool(self.config_manager.get("privacy_settings.enabled", False)):
+        if bool(self.config_manager.get("privacy_settings.enabled", True)):
             kwargs["viewer_scope"] = resolve_user_memory_scope(
                 self.config_manager, event
             )

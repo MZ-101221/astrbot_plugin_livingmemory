@@ -66,7 +66,7 @@ Save and test the provider, then set `provider_settings.embedding_provider_id` i
 
 ## Planned features in this fork
 
-This fork continues from 2.13.0. The memory scope system, supersede chain, user profiles, channel memory and external interfaces from the original design are now implemented upstream. This fork adds the remaining four items as opt-in switches that are off by default, so behavior after upgrading matches 2.13.0.
+This fork continues from 2.13.0. The memory scope system, supersede chain, user profiles, channel memory and external interfaces from the original design are now implemented upstream. This fork adds the remaining four items as switches that are on by default; turning them off restores 2.13.0 behavior.
 
 ### Already implemented upstream in 2.13.0
 
@@ -78,7 +78,7 @@ This fork continues from 2.13.0. The memory scope system, supersede chain, user 
 | Channel memory | Shared pool `livingmemory:channel:<platform>:<group_id>`, merged with personal scopes, disabled by default |
 | External interfaces | `core/external_api_server.py` for the local HTTP API, `scripts/memory_mcp_server.py` for MCP access |
 
-### Added in this fork (off by default)
+### Added in this fork (on by default)
 
 | Feature | Switch | Behavior |
 | --- | --- | --- |
@@ -87,7 +87,7 @@ This fork continues from 2.13.0. The memory scope system, supersede chain, user 
 | Injection trigger modes | `recall_engine.injection_mode` | `auto` injects every turn (default); `on_demand` skips injection and instead hints the model to call the recall tool; `hybrid` injects only when the best similarity reaches `recall_engine.hybrid_auto_threshold` (default 0.55) |
 | Speaker-locked injection | `recall_engine.speaker_locked_injection` | Group chats keep only the current speaker's user-level memories, this group's shared memories and global memories |
 
-Freshness states are never persisted; they are derived on every read. Privacy labels are written to `documents.metadata.privacy` only while the switch is on. The memory list API returns both fields and the edit API accepts them; the dashboard table does not render them yet.
+Freshness states are never persisted; they are derived on every read. Privacy labels are written to `documents.metadata.privacy` only while the switch is on. The memory list API returns both fields, the edit API accepts them, and the dashboard memory table shows Private / Review / Superseded badges in the summary line.
 
 ### Not implemented
 

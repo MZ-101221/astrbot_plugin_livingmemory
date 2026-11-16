@@ -8,7 +8,7 @@
   而不是会话 ID。这样无论用户把 ``memory_scope_mode`` 切成 ``legacy`` /
   ``session`` / ``user`` / ``global``，同一条私有记忆的归属都不会漂移。
 - 缺失标签一律按 ``public`` 处理，因此升级不需要回填数据。
-- 总开关 ``privacy_settings.enabled`` 默认关闭；关闭时本模块的过滤函数
+- 总开关 ``privacy_settings.enabled`` 默认开启；关闭时本模块的过滤函数
   直接返回原列表，行为与 2.13.0 完全一致。
 """
 

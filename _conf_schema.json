@@ -364,7 +364,7 @@
                 "description": "群聊按发言人锁定注入",
                 "hint": "群聊中只注入当前发言人的用户级记忆、本群公共记忆与全局记忆，不注入其他成员的私人画像。默认关闭。",
                 "type": "bool",
-                "default": false
+                "default": true
             },
             "auto_remove_injected": {
                 "description": "自动清除历史注入残留",
@@ -428,7 +428,7 @@
                 "description": "启用逐条隐私标签",
                 "hint": "开启后写入侧为每条记忆规范化 privacy 字段，召回侧按发言人过滤 private 记忆。升级前写入的历史记忆没有该字段，按 public 处理。",
                 "type": "bool",
-                "default": false
+                "default": true
             },
             "default_label": {
                 "description": "默认隐私标签",
@@ -457,7 +457,7 @@
                 "description": "启用时效状态与提醒",
                 "hint": "开启后召回结果会附带时效状态，过期或已被取代的记忆在注入文本里附加中文提醒。状态实时推导，不写入数据库。",
                 "type": "bool",
-                "default": false
+                "default": true
             },
             "remind_expired": {
                 "description": "提醒已过期待复核记忆",
